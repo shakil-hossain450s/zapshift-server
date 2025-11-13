@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const parcelSchema = new mongoose.Schema({
+const ParcelSchema = new mongoose.Schema({
   trackingId: { type: String, required: true, unique: true },
   parcelName: { type: String, required: true },
   parcelType: { type: String, required: true },
@@ -45,4 +45,4 @@ const parcelSchema = new mongoose.Schema({
   ],
 });
 
-module.exports = mongoose.model("Parcel", parcelSchema);
+module.exports = mongoose.model("Parcels", ParcelSchema);

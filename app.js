@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const percelRoutes = require("./routes/percels.routes");
+const parcelRoutes = require("./routes/parcels.routes");
 
 const app = express();
 
@@ -15,7 +15,7 @@ app.get("/", (req, res) => {
 });
 
 // other routes
-app.use('/api', percelRoutes);
+app.use('/', parcelRoutes);
 
 // 404 route 
 app.use((req, res, next) => {

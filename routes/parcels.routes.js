@@ -1,0 +1,84 @@
+const express = require('express');
+const parcelRoutes = express.Router();
+const ParcelsCollections = require('../models/parcel.model');
+
+// get parcel data
+parcelRoutes.get('/parcels', async (req, res) => {
+  try {
+    const userEmail = req.query.email;
+
+    const query = userEmail ? { createdBy: userEmail } : {};
+
+    const parcels = await ParcelsCollections
+      .find(query)
+      .sort({ createdAt: -1 }).lean();
+
+    if (userEmail && parcels.length === 0) {
+      return res.status(404).json({
+        success: false,
+        parcels: [],
+        message: `No parcel found for ${userEmail}`
+      })
+    }
+
+    res.status(200).json({
+      success: true,
+      count: parcels.length,
+      parcels
+    })
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      success: false,
+      message: `Error reading storage: ${err}`
+    })
+  }
+});
+
+// create a percel data
+parcelRoutes.post('/parcels', async (req, res) => {
+  try {
+    const parcelData = req.body.parcelObj;
+    console.log(parcelData);
+
+    const result = await ParcelsCollections.create(parcelData);
+    res.status(201).json({
+      success: true,
+      result
+    })
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+});
+
+parcelRoutes.delete('/parcel/:id', async (req, res) => {
+  try {
+    const _id = req.params.id;
+
+    const result = await ParcelsCollections.findByIdAndDelete(_id);
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: "Parcel not found — nothing to delete",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      result
+    })
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      success: false,
+      message: `Error deleting data from DB: ${err}`
+    })
+  }
+})
+
+module.exports = parcelRoutes;
