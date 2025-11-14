@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const parcelRoutes = require("./routes/parcels.routes");
+const paymentRoutes = require("./routes/payment.routes");
 
 const app = express();
 
@@ -14,8 +15,10 @@ app.get("/", (req, res) => {
   res.send("ZapShift server is cooking");
 });
 
-// other routes
+// parcels routes
 app.use('/', parcelRoutes);
+// payment routes
+app.use('/payments', paymentRoutes);
 
 // 404 route 
 app.use((req, res, next) => {

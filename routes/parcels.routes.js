@@ -1,6 +1,7 @@
 const express = require('express');
 const parcelRoutes = express.Router();
 const ParcelsCollections = require('../models/parcel.model');
+const mongoose = require('mongoose');
 
 // get parcel data
 parcelRoutes.get('/parcels', async (req, res) => {
@@ -35,6 +36,44 @@ parcelRoutes.get('/parcels', async (req, res) => {
     })
   }
 });
+
+// get a single parcel data from DB
+parcelRoutes.get('/parcel/:parcelId', async (req, res) => {
+  try {
+    const { parcelId } = req.params;
+
+    // mongoose id validation
+    if (!mongoose.Types.ObjectId.isValid(parcelId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid parcel ID'
+      })
+    }
+
+    // get the parcel data
+    const parcel = await ParcelsCollections.findById(parcelId).lean();
+
+    // if parcel data not exist throw a error
+    if (!parcel) {
+      return res.status(404).json({
+        success: false,
+        message: 'Parcel not found'
+      });
+    }
+
+    // send the data 
+    res.status(200).json({
+      success: true,
+      parcel
+    })
+  } catch (err) {
+    console.log('error getting the single parcel data:', err);
+    res.status(500).json({
+      success: false,
+      message: `Error getting single parcel data from: ${err.message}`
+    })
+  }
+})
 
 // create a percel data
 parcelRoutes.post('/parcels', async (req, res) => {
