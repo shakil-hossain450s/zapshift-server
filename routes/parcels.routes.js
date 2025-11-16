@@ -2,11 +2,37 @@ const express = require('express');
 const parcelRoutes = express.Router();
 const ParcelsCollections = require('../models/parcel.model');
 const mongoose = require('mongoose');
+const verifyFirebaseTokenToken = require('../middlewares/verfiyFireBaseToken');
 
-// get parcel data
-parcelRoutes.get('/parcels', async (req, res) => {
+// get all parcels
+// parcelRoutes.get('/parcels', async (req, res) => {
+//   try {
+//     const parcels = await ParcelsCollections.find().lean();
+//     res.status(200).json({
+//       success: true,
+//       parcels
+//     })
+//   } catch (err) {
+//     console.log(err);
+//     res.status(500).json({
+//       success: false,
+//       message: `Error reading storage: ${err}`
+//     })
+//   }
+// })
+
+// get parcel data by specific user email
+parcelRoutes.get('/parcels', verifyFirebaseTokenToken, async (req, res) => {
   try {
     const userEmail = req.query.email;
+
+    console.log(req.decoded.email);
+
+    if (req.decoded.email !== userEmail) {
+      return res.status(403).json({
+        message: 'Forbidden Access'
+      })
+    }
 
     const query = userEmail ? { createdBy: userEmail } : {};
 

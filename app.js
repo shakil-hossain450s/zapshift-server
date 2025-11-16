@@ -4,8 +4,11 @@ const cors = require("cors");
 const parcelRoutes = require("./routes/parcels.routes");
 const paymentRoutes = require("./routes/payment.routes");
 const usersRouter = require("./routes/users.routes");
+const connectDB = require('./config/database.config');
 
 const app = express();
+
+connectDB();
 
 // Middleware
 app.use(cors());
