@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const parcelRoutes = require("./routes/parcels.routes");
 const paymentRoutes = require("./routes/payment.routes");
+const usersRouter = require("./routes/users.routes");
 
 const app = express();
 
@@ -19,6 +20,8 @@ app.get("/", (req, res) => {
 app.use('/', parcelRoutes);
 // payment routes
 app.use('/payments', paymentRoutes);
+// users routes
+app.use('/', usersRouter);
 
 // 404 route 
 app.use((req, res, next) => {

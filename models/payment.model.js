@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const paymentSchema = new mongoose.Schema(
+const PaymentSchema = new mongoose.Schema(
   {
     parcelId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -16,4 +16,4 @@ const paymentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Payment", paymentSchema);
+module.exports = mongoose.model("Payment", PaymentSchema);
