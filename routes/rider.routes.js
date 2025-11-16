@@ -21,7 +21,28 @@ riderRoutes.get('/pendingRiders', async (req, res) => {
       message: err.message
     })
   }
-})
+});
+
+// get all active riders
+riderRoutes.get('/activeRiders', async (req, res) => {
+  try {
+    const query = {
+      status: 'approved'
+    }
+    const activeRiders = await RidersCollections.find(query).lean();
+    res.status(200).json({
+      success: true,
+      activeRiders
+    });
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      success: false,
+      message: err.message
+    })
+  }
+});
 
 // create a rider data
 riderRoutes.post('/rider', async (req, res) => {

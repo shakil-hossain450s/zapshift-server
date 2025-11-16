@@ -56,7 +56,7 @@ const RiderSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "approved", "rejected", "deactivate"],
       default: "pending",
     },
 
