@@ -1,0 +1,71 @@
+const express = require('express');
+const riderRoutes = express.Router();
+const RidersCollections = require('../models/rider.model');
+
+// get pending riders
+riderRoutes.get('/pendingRiders', async (req, res) => {
+  try {
+    const query = {
+      status: 'pending'
+    }
+    const pendingRiders = await RidersCollections.find(query).lean();
+    res.status(200).json({
+      success: true,
+      pendingRiders
+    });
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      success: false,
+      message: err.message
+    })
+  }
+})
+
+// create a rider data
+riderRoutes.post('/rider', async (req, res) => {
+  try {
+    const riderData = req.body;
+
+    const result = await RidersCollections.create(riderData);
+    res.status(201).json({
+      success: true,
+      result
+    })
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      success: false,
+      message: err.message
+    })
+  }
+});
+
+// update rider status
+riderRoutes.patch('/rider/:riderId/status', async (req, res) => {
+  try {
+    const _id = req.params.riderId;
+    const { status } = req.body;
+
+    const result = await RidersCollections.findByIdAndUpdate(
+      _id,
+      { $set: { status: status } }
+    );
+
+    res.status(200).json({
+      success: true,
+      result
+    })
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      success: false,
+      message: `Could not update the rider status: ${err.message}`
+    })
+  }
+})
+
+
+module.exports = riderRoutes;

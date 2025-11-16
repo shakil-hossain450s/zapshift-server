@@ -5,6 +5,7 @@ const parcelRoutes = require("./routes/parcels.routes");
 const paymentRoutes = require("./routes/payment.routes");
 const usersRouter = require("./routes/users.routes");
 const connectDB = require('./config/database.config');
+const riderRoutes = require("./routes/rider.routes");
 
 const app = express();
 
@@ -25,6 +26,8 @@ app.use('/', parcelRoutes);
 app.use('/payments', paymentRoutes);
 // users routes
 app.use('/', usersRouter);
+// rider routes
+app.use('/', riderRoutes);
 
 // 404 route 
 app.use((req, res, next) => {
