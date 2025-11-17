@@ -1,6 +1,7 @@
 const express = require('express');
 const riderRoutes = express.Router();
 const RidersCollections = require('../models/rider.model');
+const UsersCollections = require('../models/user.model');
 
 // get pending riders
 riderRoutes.get('/pendingRiders', async (req, res) => {
@@ -69,10 +70,28 @@ riderRoutes.patch('/rider/:riderId/status', async (req, res) => {
     const _id = req.params.riderId;
     const { status } = req.body;
 
+    const { email: userEmail } = req.body;
+
+    // return console.log(userEmail);
+
     const result = await RidersCollections.findByIdAndUpdate(
       _id,
       { $set: { status: status } }
     );
+
+    if (status === 'approved') {
+      const userQuery = { email: userEmail };
+      const updatedUserDoc = {
+        $set: { role: 'rider' }
+      }
+
+      const roleResult = await UsersCollections.findOneAndUpdate(
+        userQuery,
+        updatedUserDoc
+      )
+
+      console.log('role result', roleResult)
+    }
 
     res.status(200).json({
       success: true,
