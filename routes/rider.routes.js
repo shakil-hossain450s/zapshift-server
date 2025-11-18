@@ -51,13 +51,34 @@ riderRoutes.get('/activeRiders', verifyFirebaseToken, async (req, res) => {
 riderRoutes.get('/riders', verifyFirebaseToken, verifyAdmin, async (req, res) => {
   try {
     const { district } = req.query;
-    if (!district) return res.status(400).json({ success: false, message: 'District required' });
+    console.log('Requested district:', district);
 
-    const riders = await RidersCollections.find({ district, status: 'approved' }).lean();
-    res.status(200).json({ success: true, riders });
+    if (!district) {
+      return res.status(400).json({
+        success: false,
+        message: 'District parameter is required'
+      });
+    }
+
+    // Case-insensitive district search
+    const riders = await RidersCollections.find({
+      district: { $regex: new RegExp(`^${district}$`, 'i') },
+      status: 'approved'
+    }).select('name email phone bikeRegNo district currentDelivery status').lean();
+
+    console.log(`Found ${riders.length} riders in district: ${district}`);
+
+    res.status(200).json({
+      success: true,
+      riders: riders,
+      count: riders.length
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error('Error fetching riders:', err);
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
   }
 });
 
@@ -87,8 +108,6 @@ riderRoutes.patch('/rider/:riderId/status', verifyFirebaseToken, verifyAdmin, as
     const { status } = req.body;
 
     const { email: userEmail } = req.body;
-
-    // return console.log(userEmail);
 
     const result = await RidersCollections.findByIdAndUpdate(
       _id,
@@ -121,9 +140,6 @@ riderRoutes.patch('/rider/:riderId/status', verifyFirebaseToken, verifyAdmin, as
       message: `Could not update the rider status: ${err.message}`
     })
   }
-})
-
-
-
+});
 
 module.exports = riderRoutes;
