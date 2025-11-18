@@ -47,6 +47,20 @@ riderRoutes.get('/activeRiders', verifyFirebaseToken, async (req, res) => {
   }
 });
 
+// Get riders by district (used in Assign Rider modal)
+riderRoutes.get('/riders', verifyFirebaseToken, verifyAdmin, async (req, res) => {
+  try {
+    const { district } = req.query;
+    if (!district) return res.status(400).json({ success: false, message: 'District required' });
+
+    const riders = await RidersCollections.find({ district, status: 'approved' }).lean();
+    res.status(200).json({ success: true, riders });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // create a rider data
 riderRoutes.post('/rider', async (req, res) => {
   try {
@@ -108,6 +122,8 @@ riderRoutes.patch('/rider/:riderId/status', verifyFirebaseToken, verifyAdmin, as
     })
   }
 })
+
+
 
 
 module.exports = riderRoutes;

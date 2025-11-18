@@ -19,7 +19,7 @@ const verifyAdmin = async (req, res, next) => {
       });
     }
 
-    if (!user.role === 'admin') {
+    if (user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Forbidden access: Only admin can access this route'

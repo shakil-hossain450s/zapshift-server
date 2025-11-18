@@ -36,6 +36,11 @@ const ParcelSchema = new mongoose.Schema({
     warehouse: { type: String },
     address: { type: String },
   },
+  assignedRider: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Riders", // assuming your Rider model is named 'Riders'
+    default: null
+  },
   history: [
     {
       status: { type: String },

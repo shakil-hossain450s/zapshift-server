@@ -3,23 +3,27 @@ const parcelRoutes = express.Router();
 const ParcelsCollections = require('../models/parcel.model');
 const mongoose = require('mongoose');
 const verifyFireBaseToken = require('../middlewares/verifyFireBaseToken');
+const verifyAdmin = require('../middlewares/verifyAdmin');
 
-// get all parcels
-// parcelRoutes.get('/parcels', async (req, res) => {
-//   try {
-//     const parcels = await ParcelsCollections.find().lean();
-//     res.status(200).json({
-//       success: true,
-//       parcels
-//     })
-//   } catch (err) {
-//     console.log(err);
-//     res.status(500).json({
-//       success: false,
-//       message: `Error reading storage: ${err}`
-//     })
-//   }
-// })
+// 1. Admin: Get parcels eligible for assignment
+parcelRoutes.get('/admin/parcels', verifyFireBaseToken, verifyAdmin, async (req, res) => {
+  try {
+    const { parcelStatus, paymentStatus, deliveryStatus } = req.query;
+    const query = {};
+
+    if (parcelStatus) query.parcelStatus = parcelStatus;
+    if (paymentStatus) query.paymentStatus = paymentStatus;
+    if (deliveryStatus) query.deliveryStatus = deliveryStatus;
+
+    const parcels = await ParcelsCollections.find(query).sort({ createdAt: 1 }).lean();
+    res.status(200).json({ success: true, parcels, count: parcels.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
 
 // get parcel data by specific user email
 parcelRoutes.get('/parcels', verifyFireBaseToken, async (req, res) => {
@@ -116,6 +120,37 @@ parcelRoutes.post('/parcels', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Server Error" });
+  }
+});
+
+// Assign rider to parcel
+parcelRoutes.put('/assign-rider/:parcelId', verifyFireBaseToken, verifyAdmin, async (req, res) => {
+  try {
+    const { parcelId } = req.params;
+    const { riderId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(parcelId) || !mongoose.Types.ObjectId.isValid(riderId)) {
+      return res.status(400).json({ success: false, message: 'Invalid parcel or rider ID' });
+    }
+
+    const parcel = await ParcelsCollections.findById(parcelId);
+    if (!parcel) return res.status(404).json({ success: false, message: 'Parcel not found' });
+
+    parcel.assignedRider = riderId;
+    parcel.parcelStatus = "Processing";
+    parcel.paymentStatus = "Paid";
+    parcel.deliveryStatus = "Not Dispatched";
+    parcel.history.push({
+      status: 'Rider Assigned',
+      time: new Date(),
+      by: req.decoded.email,
+    });
+
+    await parcel.save();
+    res.status(200).json({ success: true, message: 'Rider assigned successfully', parcel });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Failed to assign rider' });
   }
 });
 
