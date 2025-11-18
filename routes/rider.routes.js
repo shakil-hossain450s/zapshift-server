@@ -2,9 +2,11 @@ const express = require('express');
 const riderRoutes = express.Router();
 const RidersCollections = require('../models/rider.model');
 const UsersCollections = require('../models/user.model');
+const verifyFirebaseToken = require('../middlewares/verifyFireBaseToken');
+const verifyAdmin = require('../middlewares/verifyAdmin');
 
 // get pending riders
-riderRoutes.get('/pendingRiders', async (req, res) => {
+riderRoutes.get('/pendingRiders', verifyFirebaseToken, verifyAdmin, async (req, res) => {
   try {
     const query = {
       status: 'pending'
@@ -25,7 +27,7 @@ riderRoutes.get('/pendingRiders', async (req, res) => {
 });
 
 // get all active riders
-riderRoutes.get('/activeRiders', async (req, res) => {
+riderRoutes.get('/activeRiders', verifyFirebaseToken, async (req, res) => {
   try {
     const query = {
       status: 'approved'
@@ -65,7 +67,7 @@ riderRoutes.post('/rider', async (req, res) => {
 });
 
 // update rider status
-riderRoutes.patch('/rider/:riderId/status', async (req, res) => {
+riderRoutes.patch('/rider/:riderId/status', verifyFirebaseToken, verifyAdmin, async (req, res) => {
   try {
     const _id = req.params.riderId;
     const { status } = req.body;

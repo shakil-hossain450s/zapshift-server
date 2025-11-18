@@ -1,12 +1,15 @@
 const express = require('express');
 const usersRouter = express.Router();
 const UsersCollections = require('../models/user.model');
+const verifyFirebaseToken = require('../middlewares/verifyFireBaseToken');
+const verifyAdmin = require('../middlewares/verifyAdmin');
 
 
+// get all user
 usersRouter.get('/users', async (req, res) => {
   try {
     const users = await UsersCollections
-      .find({})
+      .find()
       .sort({ createdAt: -1 })
       .lean();
 
@@ -22,6 +25,39 @@ usersRouter.get('/users', async (req, res) => {
     });
   }
 });
+
+// get a single user by email params for role
+usersRouter.get('/users/:email/role', async (req, res) => {
+  try {
+    const email = req.params.email;
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'email is required!'
+      });
+    }
+
+    const user = await UsersCollections.findOne({ email }).lean();
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'No user found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      role: user.role || 'user',
+      user
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      success: false,
+      message: `Error getting single user by email params: ${err.message}`
+    })
+  }
+})
 
 // search user by email query
 usersRouter.get('/users/search', async (req, res) => {
@@ -89,7 +125,7 @@ usersRouter.post('/saveUser', async (req, res) => {
   }
 })
 
-usersRouter.patch('/users/:id/role', async (req, res) => {
+usersRouter.patch('/users/:id/role', verifyFirebaseToken, verifyAdmin, async (req, res) => {
   try {
     const { id: _id } = req.params;
     const { role } = req.body;

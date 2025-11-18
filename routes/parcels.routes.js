@@ -2,7 +2,7 @@ const express = require('express');
 const parcelRoutes = express.Router();
 const ParcelsCollections = require('../models/parcel.model');
 const mongoose = require('mongoose');
-const verifyFirebaseTokenToken = require('../middlewares/verfiyFireBaseToken');
+const verifyFireBaseToken = require('../middlewares/verifyFireBaseToken');
 
 // get all parcels
 // parcelRoutes.get('/parcels', async (req, res) => {
@@ -22,7 +22,7 @@ const verifyFirebaseTokenToken = require('../middlewares/verfiyFireBaseToken');
 // })
 
 // get parcel data by specific user email
-parcelRoutes.get('/parcels', verifyFirebaseTokenToken, async (req, res) => {
+parcelRoutes.get('/parcels', verifyFireBaseToken, async (req, res) => {
   try {
     const userEmail = req.query.email;
 
@@ -64,7 +64,7 @@ parcelRoutes.get('/parcels', verifyFirebaseTokenToken, async (req, res) => {
 });
 
 // get a single parcel data from DB
-parcelRoutes.get('/parcel/:parcelId', async (req, res) => {
+parcelRoutes.get('/parcel/:parcelId', verifyFireBaseToken, async (req, res) => {
   try {
     const { parcelId } = req.params;
 

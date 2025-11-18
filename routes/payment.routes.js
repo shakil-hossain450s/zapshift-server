@@ -4,11 +4,12 @@ const paymentRoutes = express.Router();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const ParcelsCollections = require('../models/parcel.model');
 const PaymentsCollections = require('../models/payment.model'); // ✅ payment model
+const verifyFirebaseToken = require('../middlewares/verifyFireBaseToken');
 
 
 // get all payment history for admin
-paymentRoutes.get('/all-payments', async (req, res) => {
-  try {
+paymentRoutes.get('/all-payments', verifyFirebaseToken, async (req, res) => {
+  try { 
     const paymentsHistory = await PaymentsCollections.find().sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -27,7 +28,7 @@ paymentRoutes.get('/all-payments', async (req, res) => {
 })
 
 // get payment history by email for user
-paymentRoutes.get('/my-payments', async (req, res) => {
+paymentRoutes.get('/my-payments', verifyFirebaseToken, async (req, res) => {
   try {
     const userEmail = req.query.email;
     console.log(userEmail);
