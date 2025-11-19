@@ -193,6 +193,50 @@ parcelRoutes.get('/rider/active-deliveries/:riderEmail', verifyFireBaseToken, as
   }
 });
 
+// Get completed deliveries for rider by email
+parcelRoutes.get('/rider/completed-deliveries/:riderEmail', verifyFireBaseToken, async (req, res) => {
+  try {
+    const { riderEmail } = req.params;
+    
+    console.log('Fetching completed deliveries for rider:', riderEmail);
+
+    if (!riderEmail) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Rider email is required' 
+      });
+    }
+
+    // Find parcels assigned to this rider with delivered status
+    const completedDeliveries = await ParcelsCollections.find({
+      $or: [
+        { riderEmail: riderEmail },
+        { 'assignedRider.email': riderEmail }
+      ],
+      deliveryStatus: 'delivered'
+    })
+    .select('-__v')
+    .sort({ updatedAt: -1 }) // Most recent first
+    .lean();
+
+    console.log(`Found ${completedDeliveries.length} completed deliveries for rider ${riderEmail}`);
+
+    res.status(200).json({
+      success: true,
+      count: completedDeliveries.length,
+      completedDeliveries
+    });
+
+  } catch (err) {
+    console.error('Error fetching rider completed deliveries:', err);
+    res.status(500).json({
+      success: false,
+      message: `Failed to fetch completed deliveries: ${err.message}`
+    });
+  }
+});
+
+
 // create a percel data
 parcelRoutes.post('/parcels', async (req, res) => {
   try {

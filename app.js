@@ -6,6 +6,7 @@ const paymentRoutes = require("./routes/payment.routes");
 const usersRouter = require("./routes/users.routes");
 const connectDB = require('./config/database.config');
 const riderRoutes = require("./routes/rider.routes");
+const walletRoutes = require("./routes/wallet.routes");
 
 const app = express();
 
@@ -28,6 +29,8 @@ app.use('/payments', paymentRoutes);
 app.use('/', usersRouter);
 // rider routes
 app.use('/', riderRoutes);
+// wallet routes
+app.use('/', walletRoutes);
 
 // 404 route 
 app.use((req, res, next) => {
