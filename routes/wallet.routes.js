@@ -249,4 +249,109 @@ walletRoutes.post('/wallet/cash-out', verifyFirebaseToken, async (req, res) => {
   }
 });
 
+walletRoutes.post('/wallet/cash-out', verifyFirebaseToken, async (req, res) => {
+  try {
+    const { amount, method, accountInfo } = req.body;
+    const riderId = req.decoded.uid;
+
+    console.log('Cash-out request:', { riderId, amount, method });
+
+    if (!amount || !method) {
+      return res.status(400).json({
+        success: false,
+        message: 'Amount and payment method are required'
+      });
+    }
+
+    // Validate amount
+    const cashOutAmount = parseFloat(amount);
+    const minAmount = 500;
+    const maxAmount = 50000;
+
+    if (cashOutAmount < minAmount) {
+      return res.status(400).json({
+        success: false,
+        message: `Minimum cash-out amount is ৳${minAmount}`
+      });
+    }
+
+    if (cashOutAmount > maxAmount) {
+      return res.status(400).json({
+        success: false,
+        message: `Maximum cash-out amount is ৳${maxAmount}`
+      });
+    }
+
+    // Find wallet
+    const wallet = await walletCollections.findOne({ riderId });
+    if (!wallet) {
+      return res.status(404).json({
+        success: false,
+        message: 'Wallet not found'
+      });
+    }
+
+    // Check sufficient balance
+    if (cashOutAmount > wallet.availableBalance) {
+      return res.status(400).json({
+        success: false,
+        message: 'Insufficient balance'
+      });
+    }
+
+    // Calculate processing fee and net amount
+    const processingFee = 10;
+    const netAmount = cashOutAmount - processingFee;
+
+    // Create withdrawal request
+    const withdrawal = {
+      amount: cashOutAmount,
+      method: method,
+      accountInfo: accountInfo,
+      status: 'pending',
+      requestedAt: new Date()
+    };
+
+    // Add debit transaction for processing fee
+    const feeTransaction = {
+      type: 'debit',
+      amount: processingFee,
+      description: `Processing fee for ${method} cash-out`,
+      timestamp: new Date(),
+      balanceAfter: wallet.availableBalance - processingFee
+    };
+
+    // Update wallet - DEDUCT PROCESSING FEE IMMEDIATELY
+    wallet.availableBalance -= processingFee;
+    wallet.totalWithdrawn += cashOutAmount; // Track total withdrawn amount
+    wallet.pendingWithdrawals.push(withdrawal);
+    wallet.transactionHistory.push(feeTransaction);
+    wallet.lastUpdated = new Date();
+
+    await wallet.save();
+
+    console.log('Cash-out request submitted successfully');
+
+    res.json({
+      success: true,
+      message: 'Cash-out request submitted successfully',
+      data: {
+        withdrawalId: withdrawal._id,
+        amount: cashOutAmount,
+        processingFee: processingFee,
+        netAmount: netAmount,
+        estimatedProcessing: '24-48 hours',
+        newBalance: wallet.availableBalance
+      }
+    });
+  } catch (error) {
+    console.error('Error processing cash-out:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process cash-out request',
+      error: error.message
+    });
+  }
+});
+
 module.exports = walletRoutes;
