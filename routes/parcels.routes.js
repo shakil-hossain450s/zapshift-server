@@ -104,6 +104,50 @@ parcelRoutes.get('/parcel/:parcelId', verifyFireBaseToken, async (req, res) => {
   }
 });
 
+// Get pending deliveries for rider by email
+parcelRoutes.get('/rider/pending-deliveries/:riderEmail', verifyFireBaseToken, async (req, res) => {
+  try {
+    const { riderEmail } = req.params;
+    
+    console.log('Fetching pending deliveries for rider:', riderEmail);
+
+    if (!riderEmail) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Rider email is required' 
+      });
+    }
+
+    // Find parcels assigned to this rider with pending status
+    const pendingDeliveries = await ParcelsCollections.find({
+      $or: [
+        { riderEmail: riderEmail },
+        { 'assignedRider.email': riderEmail }
+      ],
+      deliveryStatus: 'rider_assigned',
+      parcelStatus: 'On the Way'
+    })
+    .select('-__v')
+    .sort({ createdAt: 1 }) // Oldest first
+    .lean();
+
+    console.log(`Found ${pendingDeliveries.length} pending deliveries for rider ${riderEmail}`);
+
+    res.status(200).json({
+      success: true,
+      count: pendingDeliveries.length,
+      pendingDeliveries
+    });
+
+  } catch (err) {
+    console.error('Error fetching rider pending deliveries:', err);
+    res.status(500).json({
+      success: false,
+      message: `Failed to fetch pending deliveries: ${err.message}`
+    });
+  }
+});
+
 // create a percel data
 parcelRoutes.post('/parcels', async (req, res) => {
   try {
@@ -122,6 +166,46 @@ parcelRoutes.post('/parcels', async (req, res) => {
   }
 });
 
+// Migration route to update existing parcels with rider fields
+parcelRoutes.post('/admin/migrate-rider-fields', verifyFireBaseToken, verifyAdmin, async (req, res) => {
+  try {
+    const parcels = await ParcelsCollections.find({
+      assignedRider: { $exists: true, $ne: null }
+    });
+
+    let updatedCount = 0;
+
+    for (let parcel of parcels) {
+      if (parcel.assignedRider && parcel.assignedRider._id) {
+        // Only update if fields don't exist or are different
+        if (!parcel.riderId || parcel.riderId.toString() !== parcel.assignedRider._id.toString()) {
+          parcel.riderId = parcel.assignedRider._id;
+          parcel.riderEmail = parcel.assignedRider.email;
+          parcel.riderName = parcel.assignedRider.name;
+          await parcel.save();
+          updatedCount++;
+          console.log(`Updated parcel ${parcel.trackingId}`);
+        }
+      }
+    }
+
+    console.log('Migration completed. Updated', updatedCount, 'parcels');
+
+    res.status(200).json({
+      success: true,
+      message: `Migration completed. Updated ${updatedCount} parcels.`,
+      updatedCount
+    });
+  } catch (err) {
+    console.error('Migration error:', err);
+    res.status(500).json({
+      success: false,
+      message: `Migration failed: ${err.message}`
+    });
+  }
+});
+
+// Assign rider to parcel - FIXED ERROR HANDLING
 parcelRoutes.put('/assign-rider/:parcelId', verifyFireBaseToken, verifyAdmin, async (req, res) => {
   try {
     const { parcelId } = req.params;
@@ -136,12 +220,12 @@ parcelRoutes.put('/assign-rider/:parcelId', verifyFireBaseToken, verifyAdmin, as
     }
 
     // Get rider details first
-    const rider = await RidersCollections.findById(riderId).select('name email phone bikeRegNo currentDelivery').lean();
+    const rider = await RidersCollections.findById(riderId).select('name email phone bikeRegNo currentDelivery _id').lean();
     if (!rider) {
       return res.status(404).json({ success: false, message: 'Rider not found' });
     }
 
-    console.log('Found rider:', rider.name);
+    console.log('Found rider:', rider);
 
     // Check if rider is already assigned to ANOTHER delivery (not this same parcel)
     if (rider.currentDelivery && rider.currentDelivery !== parcelId) {
@@ -159,38 +243,50 @@ parcelRoutes.put('/assign-rider/:parcelId', verifyFireBaseToken, verifyAdmin, as
     console.log('Current deliveryStatus:', parcel.deliveryStatus);
     console.log('Current assignedRider:', parcel.assignedRider);
 
-    // Check if parcel already has a rider assigned (different rider)
-    if (parcel.assignedRider && parcel.assignedRider._id.toString() !== riderId) {
+    // FIXED: Check if parcel already has a rider assigned (different rider)
+    // Check if assignedRider exists and has _id property before comparing
+    if (parcel.assignedRider && parcel.assignedRider._id && parcel.assignedRider._id.toString() !== riderId) {
       return res.status(400).json({ 
         success: false, 
         message: 'Parcel already has a different rider assigned' 
       });
     }
 
-    // Update parcel with rider details and change BOTH statuses
+    // Update parcel with ALL rider details in assignedRider object
     parcel.assignedRider = {
-      _id: riderId,
+      _id: rider._id,
       name: rider.name,
       email: rider.email,
       phone: rider.phone,
       bikeRegNo: rider.bikeRegNo
     };
     
-    // UPDATE BOTH STATUSES
-    parcel.parcelStatus = "On the Way"; // Changed from "Processing" to "On the Way"
+    // ADD SEPARATE FIELDS FOR RIDER INFORMATION
+    parcel.riderId = rider._id;
+    parcel.riderEmail = rider.email;
+    parcel.riderName = rider.name;
+    
+    // Update statuses
+    parcel.parcelStatus = "On the Way";
     parcel.paymentStatus = "Paid";
-    parcel.deliveryStatus = "In Transit"; // Changed from "Not Dispatched" to "In Transit"
+    parcel.deliveryStatus = "rider_assigned";
     
     parcel.history.push({
-      status: 'Rider Assigned - Parcel On the Way & In Transit',
+      status: 'Rider Assigned - rider_assigned',
       time: new Date(),
       by: req.decoded.email,
+      riderName: rider.name,
+      riderId: rider._id,
+      riderEmail: rider.email
     });
 
     console.log('Parcel after update - Before save:');
     console.log('New parcelStatus:', parcel.parcelStatus);
     console.log('New deliveryStatus:', parcel.deliveryStatus);
     console.log('New assignedRider:', parcel.assignedRider);
+    console.log('New riderId:', parcel.riderId);
+    console.log('New riderEmail:', parcel.riderEmail);
+    console.log('New riderName:', parcel.riderName);
 
     // Update rider's current delivery (only if not already assigned to this parcel)
     if (!rider.currentDelivery || rider.currentDelivery !== parcelId) {
@@ -204,10 +300,14 @@ parcelRoutes.put('/assign-rider/:parcelId', verifyFireBaseToken, verifyAdmin, as
     console.log('Parcel after save:');
     console.log('Final parcelStatus:', savedParcel.parcelStatus);
     console.log('Final deliveryStatus:', savedParcel.deliveryStatus);
+    console.log('Final assignedRider:', savedParcel.assignedRider);
+    console.log('Final riderId:', savedParcel.riderId);
+    console.log('Final riderEmail:', savedParcel.riderEmail);
+    console.log('Final riderName:', savedParcel.riderName);
     
     res.status(200).json({ 
       success: true, 
-      message: 'Rider assigned successfully. Parcel status: On the Way, Delivery status: In Transit', 
+      message: 'Rider assigned successfully. Delivery status: rider_assigned', 
       parcel: savedParcel 
     });
   } catch (err) {

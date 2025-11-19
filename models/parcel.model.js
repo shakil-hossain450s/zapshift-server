@@ -37,10 +37,15 @@ const ParcelSchema = new mongoose.Schema({
     address: { type: String },
   },
   assignedRider: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Riders", // assuming your Rider model is named 'Riders'
-    default: null
+    _id: { type: mongoose.Schema.Types.ObjectId, ref: 'Rider' },
+    name: String,
+    email: String,
+    phone: String,
+    bikeRegNo: String
   },
+  riderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Rider' },
+  riderEmail: String,
+  riderName: String,
   history: [
     {
       status: { type: String },
