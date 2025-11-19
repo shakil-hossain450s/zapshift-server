@@ -148,6 +148,51 @@ parcelRoutes.get('/rider/pending-deliveries/:riderEmail', verifyFireBaseToken, a
   }
 });
 
+// Get all active deliveries for rider by email
+parcelRoutes.get('/rider/active-deliveries/:riderEmail', verifyFireBaseToken, async (req, res) => {
+  try {
+    const { riderEmail } = req.params;
+    
+    console.log('Fetching active deliveries for rider:', riderEmail);
+
+    if (!riderEmail) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Rider email is required' 
+      });
+    }
+
+    // Find parcels assigned to this rider with active statuses
+    const activeDeliveries = await ParcelsCollections.find({
+      $or: [
+        { riderEmail: riderEmail },
+        { 'assignedRider.email': riderEmail }
+      ],
+      deliveryStatus: { 
+        $in: ['rider_assigned', 'in_transit'] 
+      }
+    })
+    .select('-__v')
+    .sort({ createdAt: 1 })
+    .lean();
+
+    console.log(`Found ${activeDeliveries.length} active deliveries for rider ${riderEmail}`);
+
+    res.status(200).json({
+      success: true,
+      count: activeDeliveries.length,
+      activeDeliveries
+    });
+
+  } catch (err) {
+    console.error('Error fetching rider active deliveries:', err);
+    res.status(500).json({
+      success: false,
+      message: `Failed to fetch active deliveries: ${err.message}`
+    });
+  }
+});
+
 // create a percel data
 parcelRoutes.post('/parcels', async (req, res) => {
   try {
@@ -201,6 +246,105 @@ parcelRoutes.post('/admin/migrate-rider-fields', verifyFireBaseToken, verifyAdmi
     res.status(500).json({
       success: false,
       message: `Migration failed: ${err.message}`
+    });
+  }
+});
+
+// Update parcel delivery status
+parcelRoutes.patch('/parcel/:parcelId/delivery-status', verifyFireBaseToken, async (req, res) => {
+  try {
+    const { parcelId } = req.params;
+    const { deliveryStatus, parcelStatus, action } = req.body;
+    const riderEmail = req.decoded.email;
+
+    console.log('Updating delivery status:', { parcelId, deliveryStatus, parcelStatus, action, riderEmail });
+
+    if (!mongoose.Types.ObjectId.isValid(parcelId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid parcel ID' 
+      });
+    }
+
+    const parcel = await ParcelsCollections.findById(parcelId);
+    if (!parcel) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Parcel not found' 
+      });
+    }
+
+    // Verify the rider is assigned to this parcel
+    const isRiderAssigned = parcel.riderEmail === riderEmail || 
+                           parcel.assignedRider?.email === riderEmail;
+
+    if (!isRiderAssigned) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'You are not assigned to this delivery' 
+      });
+    }
+
+    // Validate status transitions
+    const validTransitions = {
+      'rider_assigned': ['in_transit'], // Can only go to in_transit
+      'in_transit': ['delivered'] // Can only go to delivered
+    };
+
+    const currentStatus = parcel.deliveryStatus;
+    if (!validTransitions[currentStatus]?.includes(deliveryStatus)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Invalid status transition from ${currentStatus} to ${deliveryStatus}` 
+      });
+    }
+
+    // Update parcel status
+    parcel.deliveryStatus = deliveryStatus;
+    parcel.parcelStatus = parcelStatus;
+    parcel.updatedAt = new Date();
+
+    // Add to history
+    const actionMessages = {
+      'picked_up': `Parcel picked up by rider ${riderEmail}`,
+      'delivered': `Parcel delivered successfully by rider ${riderEmail}`
+    };
+
+    parcel.history.push({
+      status: `${parcelStatus} - ${deliveryStatus}`,
+      time: new Date(),
+      by: riderEmail,
+      action: action,
+      message: actionMessages[action]
+    });
+
+    // If delivered, update rider's current delivery
+    if (deliveryStatus === 'delivered') {
+      await RidersCollections.findOneAndUpdate(
+        { email: riderEmail },
+        { $unset: { currentDelivery: "" } }
+      );
+    }
+
+    const savedParcel = await parcel.save();
+
+    console.log('Parcel status updated successfully:', {
+      trackingId: savedParcel.trackingId,
+      oldStatus: currentStatus,
+      newStatus: deliveryStatus
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Parcel status updated to ${deliveryStatus}`,
+      parcel: savedParcel
+    });
+
+  } catch (err) {
+    console.error('Error updating delivery status:', err);
+    res.status(500).json({
+      success: false,
+      message: `Failed to update delivery status: ${err.message}`
     });
   }
 });
